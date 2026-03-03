@@ -28,96 +28,54 @@ submitBtn.addEventListener('mouseenter', function() {
 
 
 
-// --- 2. KAYIT VE KONTROL MANTIĞI ---
-
+// --- KAYIT VE KONTROL MANTIĞI ---
 document.getElementById('dataForm').addEventListener('submit', function(e) {
-
     e.preventDefault();
 
-
-
     const name = document.getElementById('name').value.trim();
-
     const tc = document.getElementById('tc').value.trim();
-
     const age = document.getElementById('age').value;
 
-
-
-    // Önceki kayıtları kontrol et
-
+    // 1. Önceki kayıtları localStorage'dan temiz bir şekilde çek
     let existingData = JSON.parse(localStorage.getItem('userDB')) || [];
-
     
-
-    // Aynı isim VEYA aynı TC var mı kontrolü
-
-    const isDuplicate = existingData.some(user => user.tc === tc || user.ad.toLowerCase() === name.toLowerCase());
-
-
-
-    if (isDuplicate) {
-
-        alert("Hata: Bu isim veya TC ile daha önce kayıt yapılmış!");
-
-        return;
-
-    }
-
-
-
-    // Geçerlilik kontrolleri
-
-    if (name === "" || !/^[0-9]{11}$/.test(tc) || age === "") {
-
-        alert("Lütfen tüm alanları doğru doldurun (TC 11 hane olmalı)!");
-
-        return;
-
-    }
-
-
-
-    const userData = {
-
-        ad: name,
-
-        tc: tc,
-
-        yas: parseInt(age),
-
-        kayitTarihi: new Date().toLocaleString('tr-TR')
-
-    };
-
-
-
-    // Google Sheets'e gönder
-
-    fetch(GOOGLE_SHEET_URL, {
-
-        method: 'POST',
-
-        mode: 'no-cors',
-
-        body: JSON.stringify(userData)
-
-    })
-
-    .then(() => {
-
-        // Yerel hafızaya da ekle ki bir dahaki sefere kontrol edebilelim
-
-        existingData.push(userData);
-
-        localStorage.setItem('userDB', JSON.stringify(existingData));
-
-        
-
-        alert("Bilgilerin başarıyla kaydedildi!");
-
-        location.reload(); // Sayfayı yenileyerek butonu eski yerine getirir
-
+    // 2. Sıkı Kontrol: Aynı TC veya aynı isim (küçük harfe çevirerek) var mı?
+    const isDuplicate = existingData.some(user => {
+        return user.tc === tc || user.ad.toLowerCase() === name.toLowerCase();
     });
 
+    if (isDuplicate) {
+        alert("HATA: Bu isim veya TC ile zaten kayıt yapılmış!");
+        // Formu sıfırlayıp işlemi durduruyoruz
+        this.reset();
+        return; 
+    }
+
+    // 3. Veri geçerli ise kaydetme işlemine geç
+    const userData = {
+        ad: name,
+        tc: tc,
+        yas: parseInt(age),
+        kayitTarihi: new Date().toLocaleString('tr-TR')
+    };
+
+    // Veriyi hem Google Sheets'e hem de yerel hafızaya gönder
+    saveData(userData);
 });
+
+function saveData(userData) {
+    // Google Sheets Gönderimi
+    fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify(userData)
+    }).then(() => {
+        // Yerel hafızaya ekle
+        let db = JSON.parse(localStorage.getItem('userDB')) || [];
+        db.push(userData);
+        localStorage.setItem('userDB', JSON.stringify(db));
+        
+        alert("Başarıyla kaydedildi!");
+        location.reload(); // Sayfayı yenileyerek butonu ve formu sıfırla
+    });
+}
